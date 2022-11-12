@@ -1,60 +1,85 @@
 ﻿using HtmlAgilityPack;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using PortCrawler_API.Interfaces;
+using PortCrawler_API.Model;
 using System.Net;
 
 namespace PortCrawler_API.Services
 {
     public class PortCrawlerService : IPortCrawler
     {
-        //public async Task<string> StartPortCrawler()
-        //{
-        //    string fullUrl = "https://news.ycombinator.com";
-        //    var response = CallUrl(fullUrl).Result;
-        //    return response;
-        //}
+        public readonly IConfiguration _configuration;
 
-        public async Task<string> StartPortCrawler()
+        public PortCrawlerService(IConfiguration configuration)
         {
-            string fullUrl = "https://news.ycombinator.com/";
-            HttpClient client = new HttpClient();
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls13;
-            client.DefaultRequestHeaders.Accept.Clear();
-            var response = await client.GetStringAsync(fullUrl).ConfigureAwait(false);
+            _configuration = configuration;
+        }
 
-            var results = ParseHtml(response);
-
-           // var responseString = await response.Result.ToString();
+        public async Task<List<PortNewsItems>> StartPortCrawler()
+        {
+            List<string> URLToScan = _configuration.GetSection("SitesPortuarios:URLs").Get<List<string>>();
+            string HtmlResponse = string.Empty;
+            List<PortNewsItems> results = new List<PortNewsItems>();
+            foreach (string url in URLToScan)
+            {
+                string fullUrl = url;
+                HttpClient client = new HttpClient();
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls13;
+                client.DefaultRequestHeaders.Accept.Clear();
+                HtmlResponse = await client.GetStringAsync(fullUrl).ConfigureAwait(false);
+                results.AddRange(ParseHtml(HtmlResponse));
+            }
 
             return results;
         }
 
-        private string ParseHtml(string html)
+        public List<PortNewsItems> ParseHtml(string html)
         {
             HtmlDocument htmlDoc = new HtmlDocument();
+            List<PortNewsItems> results = new List<PortNewsItems>();
             htmlDoc.LoadHtml(html);
-            var programmerLinks = htmlDoc.DocumentNode.Descendants("tr")
-                    .Where(node => node.GetAttributeValue("class", "").Contains("athing")).Take(10).ToList();
-            List<HackerNewsItems> newsLinks = new List<HackerNewsItems>();
+
+            if (html.Contains("jornalportuario"))
+            {
+                results.AddRange(ParseJornalPortuario(htmlDoc));
+            }
+                return results;
+
+        }
+
+        public List<PortNewsItems> ParseJornalPortuario(HtmlDocument htmlDoc)
+        {
+            string results = string.Empty;
+            var programmerLinks = htmlDoc.DocumentNode.Descendants("div")
+                .Where(node => node.GetAttributeValue("class", "").Contains("o-box rounded p-0")).Take(10).ToList();
+
+            List<PortNewsItems> newsLinks = new List<PortNewsItems>();
 
             foreach (var link in programmerLinks)
             {
-                var rank = link.SelectSingleNode(".//span[@class='rank']").InnerText;
-                var storyName = link.SelectSingleNode(".//span[@class='titleline']").InnerText;
-                var url = link.SelectSingleNode(".//span[@class='titleline']").GetAttributeValue("href", string.Empty);
-                var score = link.NextSibling.SelectSingleNode(".//span[@class='score']").InnerText;
+                var storyName = link.SelectSingleNode(".//h2[@class='o-title-slider']").InnerText;
+                var url = link.SelectSingleNode(".//a[@href]").GetAttributeValue("href", string.Empty);
 
-                HackerNewsItems item = new HackerNewsItems();
-                item.rank = rank.ToString();
+                PortNewsItems item = new PortNewsItems();
+
                 item.title = storyName.ToString();
                 item.url = url.ToString();
-                item.score = score.ToString();
                 newsLinks.Add(item);
             }
 
-            string results = JsonConvert.SerializeObject(newsLinks);
-            return results;
+            var filteredList = new List<PortNewsItems>();
+
+            foreach (var item in newsLinks)
+            {
+                if (item.title.Contains("Port") || item.title.Contains("Porto") || item.title.Contains("Navio") || item.title.Contains("Ship"))
+                {
+                    filteredList.Add(item);
+                }
+            }
+
+            return filteredList;
         }
     }
 }

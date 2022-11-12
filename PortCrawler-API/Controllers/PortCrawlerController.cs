@@ -1,14 +1,15 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using PortCrawler_API.Interfaces;
+using PortCrawler_API.Model;
 
 namespace PortCrawler_API.Controllers
 {
-    [Route("Port")]
+    [Route("PortNews")]
     [ApiController]
     public class PortCrawlerController : ControllerBase
     {
-        private IPortCrawler _portCrawler;
+        public IPortCrawler _portCrawler;
 
         public PortCrawlerController(IPortCrawler portCrawler)
         {
@@ -16,7 +17,7 @@ namespace PortCrawler_API.Controllers
         }
 
         [HttpGet(Name = "GetPortNews")]
-        public async Task<string> GetPortNews()
+        public async Task<List<PortNewsItems>> GetPortNews()
         {
            var response = await _portCrawler.StartPortCrawler();
 

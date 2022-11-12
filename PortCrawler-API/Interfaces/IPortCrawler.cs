@@ -1,7 +1,9 @@
-﻿namespace PortCrawler_API.Interfaces
+﻿using PortCrawler_API.Model;
+
+namespace PortCrawler_API.Interfaces
 {
     public interface IPortCrawler
     {
-        public Task<string> StartPortCrawler();
+        public Task<List<PortNewsItems>> StartPortCrawler();
     }
 }
